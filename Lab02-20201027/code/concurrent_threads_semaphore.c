@@ -2,19 +2,33 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
+#include <semaphore.h> 
 
-#define N 1000 // number of threads
-#define M 10000 // number of iterations per thread
+#define N 10//1000 // number of threads
+#define M 10 //10000 // number of iterations per thread
 #define V 1 // value added to the balance by each thread at each iteration
 
 unsigned long int shared_variable;
 int n = N, m = M, v = V;
 
-/*TODO Introdurre opportunamente i semafori nell'area critica*/
+//Definisco un semaforo globale per potervi accedere da thread_work
+sem_t * my_sem;
+
 void* thread_work(void *arg) {
 	int i;
 	for (i = 0; i < m; i++)
+		
+		if (sem_wait(my_sem) != 0){
+			printf("Errore sulla sem_wait !");
+			return NULL;
+		}
+		//Inizio area critica
 		shared_variable += v;
+		//Fine area critica
+		if (sem_post(my_sem) != 0){
+			printf("Errore sulla sempost!");
+			return NULL;	
+		}
 	return NULL;
 }
 
@@ -27,6 +41,11 @@ int main(int argc, char **argv)
 
 	printf("Going to start %d threads, each adding %d times %d to a shared variable initialized to zero...", n, m, v); fflush(stdout);
 	pthread_t* threads = (pthread_t*)malloc(n * sizeof(pthread_t));
+	
+	//Alloco e inizializzo il semaforo globale
+	my_sem = (sem_t*) malloc(sizeof(sem_t));
+	sem_init(my_sem, 0 , 1);
+	
 	int i;
 	for (i = 0; i < n; i++)
 		if (pthread_create(&threads[i], NULL, thread_work, NULL) != 0) {
@@ -39,7 +58,11 @@ int main(int argc, char **argv)
 	for (i = 0; i < n; i++)
 		pthread_join(threads[i], NULL);
 	printf("ok\n");
-
+	
+	//Dopo che tutti i threads hanno terminato posso deallocare il mio semaforo globale.
+	sem_destroy(my_sem);
+	free(my_sem);
+	
 	unsigned long int expected_value = (unsigned long int)n*m*v;
 	printf("The value of the shared variable is %lu. It should have been %lu\n", shared_variable, expected_value);
 	if (expected_value > shared_variable) {
