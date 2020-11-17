@@ -17,7 +17,7 @@ sem_t * my_sem;
 
 void* thread_work(void *arg) {
 	int i;
-	for (i = 0; i < m; i++)
+	for (i = 0; i < m; i++){
 		//printf("OUT area critica\n");
 		if (sem_wait(my_sem) != 0){
 			printf("Errore sulla sem_wait !");
@@ -31,6 +31,7 @@ void* thread_work(void *arg) {
 			printf("Errore sulla sempost!");
 			return NULL;	
 		}
+	}
 	return NULL;
 }
 

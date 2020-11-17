@@ -12,8 +12,9 @@ int n = N, m = M, v = V;
 
 void* thread_work(void *arg) {
 	int i;
-	for (i = 0; i < m; i++)
+	for (i = 0; i < m; i++){
 		shared_variable += v;
+	}
 	return NULL;
 }
 
