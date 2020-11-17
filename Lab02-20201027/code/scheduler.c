@@ -8,10 +8,10 @@
 
 /* Some constants */
 
-#define MAX_SLEEP       3   // used to simulate a work item (max length)
-#define NUM_RESOURCES   3   // number of available special resources
-#define NUM_TASKS       3   // we define the number of work items per thread
-#define THREAD_BURST    5   // determines how many threads are spawned at the same time
+#define MAX_SLEEP       30   // used to simulate a work item (max length)
+#define NUM_RESOURCES   1000   // number of available special resources
+#define NUM_TASKS       3000  // we define the number of work items per thread
+#define THREAD_BURST    5000   // determines how many threads are spawned at the same time
 
 /* We use a simple structure to encapsulate a thread's arguments */
 typedef struct thread_args_s {
@@ -23,8 +23,11 @@ typedef struct thread_args_s {
 
 /* This is the function executed when a client thread is created */
 void* client(void* arg_ptr) {
+    
     thread_args_t* args = (thread_args_t*) arg_ptr;
-
+	
+	sem_wait(args->semaphore); //Aspetto almeno che una tra le NUM_RESOURCES risorse sia disponibile
+	
     int i, ret = 0;
 
 
@@ -52,8 +55,12 @@ int main(int argc, char* argv[]) {
     int thread_ID = 0;
 
     sem_t* semaphore = malloc(sizeof(sem_t)); // we allocate a sem_t object on the heap
-
-
+	ret = sem_init(sem_t , 0 , NUM_RESOURCES); //Initialize semaphore that will allow a maximum of NUM_RESOURCES threads 
+	
+	if (ret){
+		print("Ao hai fatto i danni sulla sem_init()");
+	}
+	
     /* Main loop */
     printf("[DRIVER] Press ENTER to spawn %d new threads. Press CTRL+D to quit!\n", THREAD_BURST);
 
