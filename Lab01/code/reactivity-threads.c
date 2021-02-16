@@ -6,7 +6,15 @@
 #include <sys/wait.h>
 #include <pthread.h>
 
+
+int ITEMS = (1 << 24);
+int STEP = 2048;
+int* G_BUF = NULL;
+
 void do_work() {
+	for ( int i = 0 ; i < ITEMS ; i += STEP){
+		G_BUF[i] = 1;
+	}
 	return;
 }
 
@@ -21,6 +29,13 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 	
+	G_BUF = (int* ) calloc(ITEMS,sizeof(int));
+	
+	if(!G_BUF){
+		perror(" check your calloc on global buffer \n");
+		exit(EXIT_FAILURE);
+	}
+
 	// parse N from the command line
 	int n = atoi(argv[1]);
 
