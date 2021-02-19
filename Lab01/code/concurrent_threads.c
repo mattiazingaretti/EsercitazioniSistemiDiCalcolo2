@@ -64,6 +64,7 @@ int main(int argc, char **argv)
 	for(int j = 0 ; j < n ; j++){
 		//DEBUG printf("Buff elem %d = %d \n",j, *BUF[j]);
 		shared_variable +=  *BUF[j];
+		free(BUF[j]);
 	}
 
 
@@ -75,6 +76,7 @@ int main(int argc, char **argv)
 	}
 
     free(threads);
+	free(BUF);
 
 	return EXIT_SUCCESS;
 }
