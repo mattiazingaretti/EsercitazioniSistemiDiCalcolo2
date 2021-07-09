@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
+#include <semaphore.h>
 
 #define N 1000 // number of threads
 #define M 10000 // number of iterations per thread
@@ -10,10 +11,16 @@
 unsigned long int shared_variable;
 int n = N, m = M, v = V;
 
+//Dichiarazione Semaphore
+sem_t my_sem;
+
+
 void* thread_work(void *arg) {
 	int i;
 	for (i = 0; i < m; i++)
+		sem_wait(&my_sem); 
 		shared_variable += v;
+		sem_post(&my_sem);
 	return NULL;
 }
 
@@ -24,8 +31,13 @@ int main(int argc, char **argv)
 	if (argc > 3) v = atoi(argv[3]);
 	shared_variable = 0;
 
+	if( sem_init(&my_sem, 0, 1) != 0){
+		fprintf(stderr,"Error initializing semaphore %d\n", errno);
+		exit(EXIT_FAILURE);
+	}
+
 	printf("Going to start %d threads, each adding %d times %d to a shared variable initialized to zero...", n, m, v); fflush(stdout);
-	pthread_t* threads = (pthread_t*)malloc(n * sizeof(pthread_t));
+	pthread_t* threads = (pthread_t*) malloc(n * sizeof(pthread_t));
 	int i;
 	for (i = 0; i < n; i++)
 		if (pthread_create(&threads[i], NULL, thread_work, NULL) != 0) {
