@@ -5,13 +5,20 @@
 #include <stdlib.h>
 #include <string.h>     // strerror() formats errno into a human-readable string
 #include <unistd.h>     // sleep()
+#include "performance.h"
 
+//GLobal semaphore
+sem_t sem_exit;
 /* Some constants */
 
-#define MAX_SLEEP       3   // used to simulate a work item (max length)
+#define MAX_SLEEP       10   // used to simulate a work item (max length)
 #define NUM_RESOURCES   3   // number of available special resources
 #define NUM_TASKS       3   // we define the number of work items per thread
 #define THREAD_BURST    5   // determines how many threads are spawned at the same time
+
+int ACTIVE_THREADS = THREAD_BURST;
+
+
 
 /* We use a simple structure to encapsulate a thread's arguments */
 typedef struct thread_args_s {
@@ -31,15 +38,63 @@ void* client(void* arg_ptr) {
     printf("[@Thread%d] Resource acquired...\n", args->ID);
 
     /*** Process the work items assigned to the thread ***/
-    for (i = 0; i < args->num_tasks; ++i) {
-        // we simulate a work item by sleeping for 0 up to MAX_SLEEP seconds
-        sleep(rand() % (MAX_SLEEP+1));
+    for (i = 0; i < args->num_tasks; i += 2) {
+		
+		if(sem_wait(args->semaphore) != 0 ){
+			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+			exit(EXIT_FAILURE);
+		}
+       
+			//Critical Section
+			// we simulate a work item by sleeping for 0 up to MAX_SLEEP seconds
+			sleep(rand() % (MAX_SLEEP+1));
+			sleep(rand() % (MAX_SLEEP+1));
+			
+		if(sem_post(args->semaphore) != 0 ){
+			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+			exit(EXIT_FAILURE);
+		}
+        
+    
     }
+    
+    //Per i rimanenti Work item in caso num_tasks non sia multiplo di 2. 
+    for(i = 0 ; i<args->num_tasks; ++i ) {
+			
+		if(sem_wait(args->semaphore) != 0 ){
+			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+			exit(EXIT_FAILURE);
+		}
+       
+			//Critical Section
+			// we simulate a work item by sleeping for 0 up to MAX_SLEEP seconds
+			sleep(rand() % (MAX_SLEEP+1));
+			
+		if(sem_post(args->semaphore) != 0 ){
+			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+			exit(EXIT_FAILURE);
+		}
+        
+		
+	}
+
 
 
     printf("[@Thread%d] Done. Resource released!\n", args->ID);
 
     free(args); // I should free my own arguments!
+
+	if(sem_wait(&sem_exit) != 0 ){
+			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+			exit(EXIT_FAILURE);
+	}
+    
+		ACTIVE_THREADS--;	
+	if(sem_post(&sem_exit) != 0 ){
+		fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+		exit(EXIT_FAILURE);
+	}
+        
     return NULL;
 }
 
@@ -52,7 +107,24 @@ int main(int argc, char* argv[]) {
     int thread_ID = 0;
 
     sem_t* semaphore = malloc(sizeof(sem_t)); // we allocate a sem_t object on the heap
-
+	
+	
+	
+	
+	//Initializing semaphore
+	if(sem_init(&sem_exit, 0,THREAD_BURST ) != 0) {
+		fprintf(stderr ,"Error initializing semaphore %d\n" , errno);
+		exit(EXIT_FAILURE); 
+	}
+	
+	
+	
+	//Initializing semaphore
+	if(sem_init(semaphore, 0,NUM_RESOURCES ) != 0) {
+		fprintf(stderr ,"Error initializing semaphore %d\n" , errno);
+		exit(EXIT_FAILURE); 
+	}
+			
 
     /* Main loop */
     printf("[DRIVER] Press ENTER to spawn %d new threads. Press CTRL+D to quit!\n", THREAD_BURST);
@@ -75,6 +147,9 @@ int main(int argc, char* argv[]) {
 
             thread_args_t* args = malloc(sizeof(thread_args_t));
             args->semaphore = semaphore;
+            
+            
+            
             args->ID = thread_ID;
             args->num_tasks = NUM_TASKS;
 
@@ -93,11 +168,28 @@ int main(int argc, char* argv[]) {
     }
 
     printf("Exiting...\n");
+    
+	if(sem_wait(&sem_exit) != 0 ){
+			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+			exit(EXIT_FAILURE);
+		}
+       
+		//Critical Section nel main
+		while(ACTIVE_THREADS != 0);
+		
+		  /*** Don't forget to destroy the semaphore once you're done ***/
+		sem_destroy(semaphore);
 
-    /*** Don't forget to destroy the semaphore once you're done ***/
-    sem_destroy(semaphore);
+		free(semaphore);
 
-    free(semaphore);
+		pthread_exit(NULL);
 
-    pthread_exit(NULL);
-}
+			
+		if(sem_post(&sem_exit) != 0 ){
+			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
+			exit(EXIT_FAILURE);
+		}
+        
+    
+
+  }

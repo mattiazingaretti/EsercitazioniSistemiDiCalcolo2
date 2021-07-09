@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <semaphore.h>
+#include "performance.h"
 
 #define N 1000 // number of threads
 #define M 10000 // number of iterations per thread
@@ -17,10 +18,20 @@ sem_t my_sem;
 
 void* thread_work(void *arg) {
 	int i;
-	for (i = 0; i < m; i++)
-		sem_wait(&my_sem); 
-		shared_variable += v;
-		sem_post(&my_sem);
+	for (i = 0; i < m; i++){
+		if( sem_wait(&my_sem)!= 0){
+			fprintf(stderr,"Error in sem_wait semaphore %d\n", errno);
+			exit(EXIT_FAILURE);
+		}
+
+			shared_variable += v;
+
+		if( sem_post(&my_sem)!= 0){
+			fprintf(stderr,"Error in sem_post semaphore %d\n", errno);
+			exit(EXIT_FAILURE);
+		}
+
+	}
 	return NULL;
 }
 
@@ -35,10 +46,16 @@ int main(int argc, char **argv)
 		fprintf(stderr,"Error initializing semaphore %d\n", errno);
 		exit(EXIT_FAILURE);
 	}
-
+	
+	timer t;
+	
+	
 	printf("Going to start %d threads, each adding %d times %d to a shared variable initialized to zero...", n, m, v); fflush(stdout);
 	pthread_t* threads = (pthread_t*) malloc(n * sizeof(pthread_t));
 	int i;
+	
+	begin(&t);
+	
 	for (i = 0; i < n; i++)
 		if (pthread_create(&threads[i], NULL, thread_work, NULL) != 0) {
 			fprintf(stderr, "Can't create a new thread, error %d\n", errno);
@@ -50,7 +67,9 @@ int main(int argc, char **argv)
 	for (i = 0; i < n; i++)
 		pthread_join(threads[i], NULL);
 	printf("ok\n");
-
+	
+	end(&t);
+	
 	unsigned long int expected_value = (unsigned long int)n*m*v;
 	printf("The value of the shared variable is %lu. It should have been %lu\n", shared_variable, expected_value);
 	if (expected_value > shared_variable) {
