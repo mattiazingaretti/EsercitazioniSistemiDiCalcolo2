@@ -182,14 +182,14 @@ int main(int argc, char* argv[]) {
 
 		free(semaphore);
 
-		pthread_exit(NULL);
-
 			
 		if(sem_post(&sem_exit) != 0 ){
 			fprintf(stderr ,"Error sem_wait semaphore %d\n" , errno);
 			exit(EXIT_FAILURE);
 		}
-        
+		
+		sem_destroy(&sem_exit);
+		        
     
-
+		pthread_exit(NULL);
   }
