@@ -1,5 +1,4 @@
 #include "util.h"
-
 #include <errno.h>
 #include <fcntl.h>  // O_CREAT and O_EXCL flags
 #include <semaphore.h>
@@ -29,7 +28,12 @@ void cleanup() {
     /**
      * TODO: EDIT AND IMPLEMENT THE OPERATION DESCRIBED ABOVE
      **/
-
+    int ret = sem_close(named_semaphore);
+	if(ret) handle_error_en(ret, "Error in closing named semaphore\n");
+	
+	ret = sem_unlink(SEMAPHORE_NAME);
+	if(ret) handle_error_en(ret, "Error in unlinking named semaphore\n");
+	
     exit(0);
 }
 
@@ -47,9 +51,7 @@ int main(int argc, char* argv[]) {
      *
      * We initialize the semaphore with a value equal to NUM_RESOURCES.
      **/
-
-    
-    
+     
     /**
      * TODO: EDIT AND IMPLEMENT THE OPERATION DESCRIBED ABOVE
      **/
@@ -57,7 +59,8 @@ int main(int argc, char* argv[]) {
     // creation might fail if the named semaphore hasn't been deleted since its last creation
     // first we have to unlink it
     sem_unlink(SEMAPHORE_NAME);
-    named_semaphore = NULL;
+    named_semaphore = (sem_t*) malloc(sizeof(sem_t));
+    named_semaphore = sem_open(SEMAPHORE_NAME, O_CREAT | O_EXCL , 0600, NUM_RESOURCES );
 
     if (named_semaphore == SEM_FAILED) {
         handle_error("Could not open the named semaphore");
