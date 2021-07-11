@@ -17,6 +17,8 @@
 
 #define FILENAME	"accesses.log"
 
+//Semaphore/Named Semaphore constants
+
 /*
  * data structure required by threads
  */
@@ -85,7 +87,7 @@ void parseOutput() {
     printf("closed!!!\n");
 
     int max_child_id = -1, max_accesses = -1;
-    for (i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         printf("[Main] Child %d accessed file %s %d times\n", i, FILENAME, access_stats[i]);
         if (access_stats[i] > max_accesses) {
             max_accesses = access_stats[i];
@@ -123,6 +125,7 @@ void mainProcess() {
      * to end their activities, and waits for their termination.
      * Finally, it calls the parseOutput() method and releases
      * any shared resources. */
+     
 }
 
 void childProcess(int child_id) {
@@ -150,6 +153,25 @@ int main(int argc, char **argv) {
      * create N children where the i-th child calls childProcess(i); then
      * the main process executes function mainProcess() once all the
      * children have been created */
+          
+     
+    int i, j; 
+    pid_t pid;
+	
+    for(i = 0 ; i< N ; ++i ) {
+		j = i;
+		pid = fork();
+		if(pid == 0 ){ 
+			childProcess(j);
+			exit(EXIT_SUCCESS);
+		}else if(pid == -1){
+			handle_error_en(pid, "Error in child process cretaion in \n");
+			exit(1);
+		}
+	}
+    
+    mainProcess();
+	 
 
     exit(EXIT_SUCCESS);
 }
