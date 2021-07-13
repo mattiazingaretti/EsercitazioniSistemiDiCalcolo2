@@ -32,6 +32,21 @@ int request() {
   *
   * map the shared memory in the data array
   **/
+	
+	int ret;
+  //INIT shm
+  shm_fd = shm_open(SHM_NAME ,O_RDWR , 0666 );
+  if(shm_fd < 0 ) {handle_error("Error in open shm in request process \n ");}
+  
+  if((data = (int*) mmap(0, SIZE , PROT_READ | PROT_WRITE , MAP_SHARED , shm_fd , 0)) == MAP_FAILED ){handle_error("Error in mmap shm in request process \n ");} ;
+  
+  //Init sem_req for sync
+  sem_req = sem_open(SEM_NAME_REQ , 0);
+  if(sem_req == SEM_FAILED ){handle_error("Error in open sem_req in request process \n ");}
+
+  sem_wrk = sem_open(SEM_NAME_WRK , 0);
+  if(sem_wrk == SEM_FAILED ){handle_error("Error in open sem_wrk in request process \n ");}
+
 
   printf("request: mapped address: %p\n", data);
 
@@ -46,7 +61,15 @@ int request() {
     * Signal the worker that it can start the elaboration
     * and wait it has terminated
     **/
+    
+  ret = sem_post(sem_req);
+  if(ret) {handle_error("Error in sem_post sem_req in request process \n ");}
+  
+   
   printf("request: acquire updated data\n");
+  
+  ret = sem_wait(sem_wrk);
+  if(ret) {handle_error("Error in sem_wait sem_wrk in request process \n ");}
 
   printf("request: updated data:\n");
   for (i = 0; i < NUM; ++i) {
@@ -57,6 +80,15 @@ int request() {
     *
     * Release resources
     **/
+    
+  ret = sem_close(sem_wrk);
+  if(ret) {handle_error("Error in sem_close sem_wrk in request process \n ");}
+
+  ret = sem_close(sem_req);
+  if(ret) {handle_error("Error in sem_close sem_req in request process \n ");}
+  
+  ret = close(shm_fd);
+  if(ret) {handle_error("Error in close shm in request process \n ");}
 
 
   return EXIT_SUCCESS;
@@ -71,12 +103,15 @@ int work() {
   int ret;
   
   
-  
-  shm_fd = shm_open(SHM_NAME , O_RDWR , 0600);
-  if(shm_fd < 0 ) {handl_error("Error in work in shm_open \n");}
-  
-  if((data = (int*) mmap(0, SIZE , PROT_WRITE , MAP_SHARED , shm_fd , 0)) == MAP_FAILED) {handl_error("Error in work in mmap \n");};
   printf("worker: mapped address: %p\n", data);
+  
+  //Init sem sync
+  sem_req = sem_open(SEM_NAME_REQ , 0);
+  if(sem_req == SEM_FAILED ){handle_error("Error in open sem_req in work process \n ");}
+
+  sem_wrk = sem_open(SEM_NAME_WRK , 0);
+  if(sem_wrk == SEM_FAILED ){handle_error("Error in open sem_wrk in work process \n ");}
+
 
 
    /** COMPLETE THE FOLLOWING CODE BLOCK
@@ -86,16 +121,31 @@ int work() {
   
   
   printf("worker: waiting initial data\n");
-
+  
+  ret = sem_wait(sem_req);
+  if (ret){handle_error("Error in sem_wait per sem_req in work \n ");}
+  
+  //INIT shm
+  shm_fd = shm_open(SHM_NAME , O_RDWR , 0600);
+  if(shm_fd < 0 ) {handle_error("Error in work in shm_open \n");}
+  
+  if((data = (int*) mmap(0, SIZE , PROT_WRITE , MAP_SHARED , shm_fd , 0)) == MAP_FAILED) {handle_error("Error in work in mmap \n");};
+  
   printf("worker: initial data acquired\n");
 
   printf("worker: update data\n");
+  
+  //INITIALIZATION NOT NEEDED 
   int i;
   for (i = 0; i < NUM; ++i) {
     data[i] = data[i] * data[i];
   }
 
   printf("worker: release updated data\n");
+  
+  ret = sem_post(sem_wrk);
+  if (ret){handle_error("Error in sem_wait per sem_wrk in work \n ");}
+  
 
    /** COMPLETE THE FOLLOWING CODE BLOCK
     *
@@ -108,8 +158,15 @@ int work() {
    * Release resources
    **/
    
-   ret = close(shm_fd);
-   if(ret) {handl_error("Error in work in close \n");}
+  ret = close(shm_fd);
+  if(ret) {handle_error("Error in work in close \n");} 
+      
+  ret = sem_close(sem_wrk);
+  if(ret) {handle_error("Error in sem_close sem_wrk in work process \n ");}
+
+  ret = sem_close(sem_req);
+  if(ret) {handle_error("Error in sem_close sem_req in work process \n ");}
+  
   
   return EXIT_SUCCESS;
 }
@@ -128,18 +185,14 @@ int main(int argc, char **argv){
 	//First unlink the shm from previous executions.
 	shm_unlink(SHM_NAME);
 	
-	shm_fd = shm_open(SHM_NAME, O_CREATE | O_EXCL | O_RDWR , 0666);
-	if(shm_fd <0){handle_error_en("Error in open shm in main process \n ", shm_fd);}
+	shm_fd = shm_open(SHM_NAME, O_CREAT | O_EXCL | O_RDWR , 0666);
+	if(shm_fd <0){handle_error_en(shm_fd, "Error in open shm in main process \n ");}
 	
 	ret = ftruncate(shm_fd , SIZE);
-	if (ret) {handle_errror("Error in ftruncate in main process \n ");}
+	if (ret) {handle_error("Error in ftruncate in main process \n ");}
 	
-	if((data = (data*) mmap(0, SIZE , PROT_WRITE | PROT_READ , MAP_SHARED , shm_fd , 0)) == MAP_FAILED ){handle_error("Error in mmap in main process \n ");} ;
+	if((data = (int*) mmap(0, SIZE , PROT_WRITE | PROT_READ , MAP_SHARED , shm_fd , 0)) == MAP_FAILED ){handle_error("Error in mmap in main process \n ");} ;
 	
-	//Init data array
-	for(int i = 0; i < NUM; ++i ){
-		data[i] = 0;
-	}
 	
 	//Semaphores initializations
 	sem_unlink(SEM_NAME_REQ);
@@ -177,10 +230,18 @@ int main(int argc, char **argv){
     **/
     
     
-    ret = close(shm_fd);
-	if(ret) {handl_error("Error in main in close \n");}
-  
-
+    
+	ret = sem_unlink(SEM_NAME_WRK);
+	if(ret){handle_error("Error in sem unlink sem_wrk in main process \n ");}
+	
+	ret = sem_unlink(SEM_NAME_REQ);
+	if(ret){handle_error("Error in sem unlink sem_req in main process \n ");}
+	
+	ret = shm_unlink(SHM_NAME);
+	if(ret){handle_error("Error in shm unlink  in main process \n ");}
+	if(ret){handle_error("Error in shm unlink  in main process \n ");}
+    
+    
     _exit(EXIT_SUCCESS);
 
 }
