@@ -20,6 +20,12 @@ int * data;
 *
 * Add any needed resource 
 **/
+int shm_fd;
+
+//Synch res
+sem_t * sem_req;
+sem_t * sem_wrk;
+
 
 int request() {
   /** COMPLETE THE FOLLOWING CODE BLOCK
@@ -62,13 +68,23 @@ int work() {
   *
   * map the shared memory in the data array
   **/
+  int ret;
+  
+  
+  
+  shm_fd = shm_open(SHM_NAME , O_RDWR , 0600);
+  if(shm_fd < 0 ) {handl_error("Error in work in shm_open \n");}
+  
+  if((data = (int*) mmap(0, SIZE , PROT_WRITE , MAP_SHARED , shm_fd , 0)) == MAP_FAILED) {handl_error("Error in work in mmap \n");};
   printf("worker: mapped address: %p\n", data);
+
 
    /** COMPLETE THE FOLLOWING CODE BLOCK
     *
     * Wait that the request() process generated data
     **/
-
+  
+  
   printf("worker: waiting initial data\n");
 
   printf("worker: initial data acquired\n");
@@ -91,7 +107,10 @@ int work() {
    *
    * Release resources
    **/
-
+   
+   ret = close(shm_fd);
+   if(ret) {handl_error("Error in work in close \n");}
+  
   return EXIT_SUCCESS;
 }
 
@@ -103,10 +122,39 @@ int main(int argc, char **argv){
     *
     * Create and open the needed resources 
     **/
+	int ret;
+    
+	
+	//First unlink the shm from previous executions.
+	shm_unlink(SHM_NAME);
+	
+	shm_fd = shm_open(SHM_NAME, O_CREATE | O_EXCL | O_RDWR , 0666);
+	if(shm_fd <0){handle_error_en("Error in open shm in main process \n ", shm_fd);}
+	
+	ret = ftruncate(shm_fd , SIZE);
+	if (ret) {handle_errror("Error in ftruncate in main process \n ");}
+	
+	if((data = (data*) mmap(0, SIZE , PROT_WRITE | PROT_READ , MAP_SHARED , shm_fd , 0)) == MAP_FAILED ){handle_error("Error in mmap in main process \n ");} ;
+	
+	//Init data array
+	for(int i = 0; i < NUM; ++i ){
+		data[i] = 0;
+	}
+	
+	//Semaphores initializations
+	sem_unlink(SEM_NAME_REQ);
+	sem_unlink(SEM_NAME_WRK); //Do not handle ret value here !
+	
+	sem_req = sem_open(SEM_NAME_REQ , O_CREAT | O_EXCL , 0600, 0);
+	if(sem_req == SEM_FAILED){handle_error("Error in sem open sem_req \n");}
+	
+	sem_wrk = sem_open(SEM_NAME_WRK , O_CREAT | O_EXCL , 0600, 0);
+	if(sem_wrk == SEM_FAILED){handle_error("Error in sem open sem_wrk \n");}
+	
+	
+	
+	
 
-
-
-    int ret;
     pid_t pid = fork();
     if (pid == -1) {
         handle_error("main: fork");
@@ -127,6 +175,11 @@ int main(int argc, char **argv){
     *
     * Close and release resources
     **/
+    
+    
+    ret = close(shm_fd);
+	if(ret) {handl_error("Error in main in close \n");}
+  
 
     _exit(EXIT_SUCCESS);
 
