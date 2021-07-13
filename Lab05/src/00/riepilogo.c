@@ -190,7 +190,14 @@ void main_process() {
      * TODO: notify children to end their activities
      * by setting data to 1
      */
-
+	shm_fd = shm_open(SHM_NAME, O_RDWR , 0666);
+	if (shm_fd < 0 ){handle_error("Error in shm open in main process\n");}
+	
+	
+	data = (int*)mmap(0, sizeof(int),PROT_WRITE,MAP_SHARED,shm_fd , 0); 
+	if(data == MAP_FAILED) {handle_error("Error in mmap\n ");}
+	
+	*data = 1;
 
 	printf("[Main] Children have been notified to end their activities!!!\n");
 
@@ -220,7 +227,10 @@ void main_process() {
      * TODO: close the shared memory.
      * Do you also have to unlink it here?
      */
-
+	
+	ret = close(shm_fd);
+	if(ret){handle_error("Error in closing shm \n");}
+	
 
     ret = sem_close(main_waits_for_children);
 	if(ret) {
@@ -274,7 +284,17 @@ void child_process(int child_id) {
 
     unsigned int thread_id = 0;
     pthread_t* thread_handlers = malloc(m * sizeof(pthread_t));
-
+	
+	//OPEN SHARED MEMORY.
+	shm_fd = shm_open(SHM_NAME , O_RDONLY , 0600);
+	if (shm_fd < 0 ) {handle_error("Errore in open shm in child_process\n");exit(1);}
+	
+	
+	data = (int*) mmap(0, sizeof(int), PROT_READ , MAP_SHARED , shm_fd, 0);
+	if(data == MAP_FAILED) {handle_error("Errore in mmap in child_process\n");exit(1);}
+	
+	
+	
     do {
         int j;
 
@@ -309,6 +329,8 @@ void child_process(int child_id) {
         /**
          * TODO: if main process notified to terminate activities, break
          */
+         
+        if(*data == 1 ) break; 
 
         printf("[Child#%d] Go on with activities!!!\n", child_id);
     } while(1);
@@ -321,7 +343,8 @@ void child_process(int child_id) {
      * TODO: close the shared memory.
      * Do you also have to unlink it here?
      */
-
+	ret = close(shm_fd);
+	if (ret){handle_error("close shm failed");}
 
     ret = sem_close(main_waits_for_children);
 	if(ret) {
@@ -352,7 +375,20 @@ int main(int argc, char **argv) {
      * map the memory in the data pointer (int* data) defined as global variable,
      * initialize data to 0
      */
-
+	
+	shm_unlink(SHM_NAME); //First Unlinks
+	
+	shm_fd = shm_open(SHM_NAME, O_CREAT | O_EXCL |O_RDWR , 0666); //Then open it
+	if (shm_fd < 0) {handle_error_en("Error in opening shm \n",shm_fd); exit(EXIT_FAILURE);}
+	
+	int ret = ftruncate(shm_fd , sizeof(int));
+	
+	data = (int*) mmap(0, sizeof(int) , PROT_READ | PROT_WRITE , MAP_SHARED , shm_fd , 0);//mmap here
+	if(data == MAP_FAILED ) {handle_error_en("Error in mmap \n", data); exit(EXIT_FAILURE);}
+	
+	*data = 0; //needed to set an initial value
+	
+	
 
     // main_waits_for_children named semaphore
     main_waits_for_children = create_named_semaphore(MAIN_WAITS_FOR_CHILDREN_SEMAPHORE_NAME, 0600, 0);
@@ -386,5 +422,11 @@ int main(int argc, char **argv) {
     /* MAIN PROCESS */
     main_process();
 
+	
+	ret = shm_unlink(SHM_NAME);
+	if (ret){handle_error("unlink shm failed");}
+
+
+    
     exit(EXIT_SUCCESS);
 }
