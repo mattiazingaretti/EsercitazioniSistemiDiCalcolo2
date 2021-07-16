@@ -19,7 +19,7 @@ void connection_handler(int socket_desc) {
     // receive command from client
     char recv_buf[256];
     size_t recv_buf_len = sizeof(recv_buf);
-    int recv_bytes;
+    int recv_bytes = 0;
 
     /** INSERT CODE TO RECEIVE DATA HERE
      *
@@ -30,7 +30,19 @@ void connection_handler(int socket_desc) {
      *   recv() we will get stuck since the call is blocking!
      * - store the number of received bytes in recv_bytes
      */
-
+     
+	while((recv_buf_len - recv_bytes) > 0  ){
+		ret = recv(socket_desc , recv_buf , recv_buf_len - recv_bytes, 0);
+		
+		if(ret == 0) handle_error("client closed socket so do I as a server \n ");
+		if(ret == 1 ) {if(errno == EINTR) continue; handle_error("error while reading socket in server \n");  }
+		
+		recv_bytes += ret;
+		if(ret == allowed_command_len) break;
+		
+	}
+	
+	
     if (DEBUG) fprintf(stderr, "Message of %d bytes received\n", recv_bytes);
 
     // parse command received and write reply in send_buf
@@ -44,14 +56,21 @@ void connection_handler(int socket_desc) {
 
     // send reply
     size_t server_message_len = strlen(send_buf);
-
+	int sent_bytes = 0;
     /** INSERT CODE TO SEND DATA HERE
      *
      * Suggestions:
      * - send() with flags = 0 is equivalent to write() on a descriptor
      * - for now don't deal with messages partially sent
      */
-   
+	while( (server_message_len - sent_bytes) > 0 ){
+		ret = send(socket_desc , send_buf , server_message_len - sent_bytes, 0);
+		if(ret == 1 ) {if(errno == EINTR) continue; handle_error("error while reading socket in server \n");  }
+		
+		sent_bytes += ret;
+	}
+	
+	
     if (DEBUG) fprintf(stderr, "Message of %d bytes sent\n", ret);
 
     // close socket

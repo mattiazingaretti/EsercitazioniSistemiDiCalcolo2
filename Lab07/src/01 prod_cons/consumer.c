@@ -20,7 +20,10 @@ void openFIFO() {
      *
      * Open the FIFO
      **/
-
+	
+	fifo = open(FIFO_NAME , O_RDONLY , 0666);
+	if(fifo < 0) handle_error("Error in open fifo in openFIFO in consumer \n");
+	
  
 
 }
@@ -32,6 +35,8 @@ static void closeFIFO() {
      * - Close the fifo
      * - Destroy the fifo
      * */
+	int ret = close(fifo);
+	if(ret) handle_error("Errro in closing fifo in consumer\n ");
 
 }
 
@@ -74,11 +79,13 @@ void consume(int id, int numOps) {
          * Complete the following code:
          * read the message from FIFO and update the producer position
          */
+         readValue(&value);
 
         localSum += value;
         numOps--;
     }
     printf("Consumer %d ended. Local sum is %d\n", id, localSum);
+    fflush(stdout);
 }
 
 int main(int argc, char** argv) {
@@ -103,7 +110,7 @@ int main(int argc, char** argv) {
     }
 
     printf("Consumers have terminated. Exiting...\n");
-
+	fflush(stdout);
     closeFIFO();
 
     exit(EXIT_SUCCESS);

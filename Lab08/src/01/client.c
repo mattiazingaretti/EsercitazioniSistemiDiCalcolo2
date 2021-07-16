@@ -23,7 +23,9 @@ int main(int argc, char* argv[]) {
      * - protocollo AF_INET
      * - tipo SOCK_STREAM
      */
-
+	
+	socket_desc = socket( AF_INET, SOCK_STREAM, 0 ); 
+    if(socket_desc < 0) handle_error("Error in creating socket in client \n ");
     if (DEBUG) fprintf(stderr, "Socket created...\n");
 
     /**
@@ -38,7 +40,14 @@ int main(int argc, char* argv[]) {
      * - - attention to the bind method:
      * - - it requires as second field struct sockaddr* addr, but our address is a struct sockaddr_in, hence we must cast it (struct sockaddr*) &server_addr
      */
-
+	server_addr.sin_addr.s_addr = inet_addr(SERVER_ADDRESS);
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(SERVER_PORT);
+	
+	ret = connect(socket_desc , (struct sockaddr*)&server_addr , sizeof(struct sockaddr_in) );
+	if(ret< 0) handle_error("error in connect in client \n ");
+	
+	
     if (DEBUG) fprintf(stderr, "Connection established!\n");
 
     char buf[1024];
@@ -49,16 +58,16 @@ int main(int argc, char* argv[]) {
     /**
      *  TODO: receive and display the welcome message from server
      *
-     * Suggestions:
-     * - set the 3 fields of server:
-     * - - server_addr.sin_addr.s_addr: we must specify the server address
-     * - - server_addr.sin_family,
-     * - - server_addr.sin_port (using htons() method)
-     * - initiate a connection to the server
-     * - - attention to the bind method:
-     * - - it requires as second field struct sockaddr* addr, but our address is a struct sockaddr_in, hence we must cast it (struct sockaddr*) &server_addr
-     */
-
+     **/
+    recv_bytes = 0;
+	while(1){
+		ret = recv(socket_desc , buf+recv_bytes , 1 , 0);
+		if(ret == 0 ) handle_error("Server closed socket so do I as a client \n ");
+		if(ret == -1) {if(errno  == EINTR) continue; handle_error("Error in recv welcome message in client\n ");}
+		if(buf[recv_bytes] == '\0' || buf[recv_bytes] == '\n') break;
+		recv_bytes += ret;
+	}
+	
     if (DEBUG) fprintf(stderr, "Received message of %d bytes...\n",recv_bytes);
 
 
@@ -90,7 +99,14 @@ int main(int argc, char* argv[]) {
          * - deal with partially sent messages
          * - message size IS NOT buf size
          */
-
+		
+		bytes_sent = 0;
+		while((msg_len - bytes_sent ) > 0 ){
+			ret = send(socket_desc , buf + bytes_sent , msg_len -bytes_sent, 0);
+			if(ret == -1) {if(errno  == EINTR) continue; handle_error("Error in recv welcome message in client\n ");}
+			if(ret != msg_len) handle_error("partially sent message \n");
+			bytes_sent += ret;
+		}
         if (DEBUG) fprintf(stderr, "Sent message of %d bytes...\n", bytes_sent);
 
 
@@ -106,6 +122,7 @@ int main(int argc, char* argv[]) {
          *   memcmp(const void *ptr1, const void *ptr2, size_t num)
          * - exit from the cycle when there is nothing left to receive
          */
+         if(bytes_sent == quit_command_len && !memcmp(buf , quit_command , quit_command_len)) break;
 
         /**
          *  TODO: read message from server
@@ -116,6 +133,15 @@ int main(int argc, char* argv[]) {
          *   recv() we will get stuck, because the call is blocking!
          * - deal with partially sent messages (we do not know the message size)
          */
+         
+		recv_bytes = 0;
+		while(1){
+			ret = recv(socket_desc , buf+recv_bytes , 1 , 0);
+			if(ret == 0 ) handle_error("Server closed socket so do I as a client \n ");
+			if(ret == -1) {if(errno  == EINTR) continue; handle_error("Error in recv welcome message in client\n ");}
+			if(buf[recv_bytes] == '\0' || buf[recv_bytes] == '\n') break;
+			recv_bytes += ret;
+		}
 
         if (DEBUG) fprintf(stderr, "Received answer of %d bytes...\n",recv_bytes);
 
@@ -126,6 +152,9 @@ int main(int argc, char* argv[]) {
     /**
      *  TODO: close socket and release unused resources
      */
+	ret = close(socket_desc);
+    if(ret) handle_error("Error inclosing socket in client \n ");
+
 
     if (DEBUG) fprintf(stderr, "Socket closed...\n");
 

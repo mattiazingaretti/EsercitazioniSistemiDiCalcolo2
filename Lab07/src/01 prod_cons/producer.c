@@ -12,7 +12,6 @@
 #include <sys/wait.h>
 #include "common.h"
 
-//definizione semafori named
 int fifo;
 
 void initFIFO() {
@@ -20,7 +19,14 @@ void initFIFO() {
      *
      * Request the kernel to create a FIFO and open it
      **/
-
+	unlink(FIFO_NAME);
+	int ret = mkfifo(FIFO_NAME, 0666);
+	if(ret) {handle_error("error in mkfifo in initFIFO \n ");}
+	
+	fifo = open(FIFO_NAME , O_CREAT |  O_WRONLY , 0666);
+	if(fifo < 0) handle_error("Error in open fifo in initFifo \n");
+	
+	
 }
 
 static void closeFIFO() {
@@ -29,8 +35,13 @@ static void closeFIFO() {
      *
      * - Close the fifo
      * */
+     
+	int ret = close(fifo);
+	if(ret) handle_error("Errro in closing fifo in prod \n ");
 
-
+	ret = unlink(FIFO_NAME);
+	if(ret) handle_error("error in unlink fifo in prod\n ");
+	
 }
     
 
@@ -82,7 +93,9 @@ void produce(int id, int numOps) {
          */
 
         /**/
-
+        
+        writeValue(value);
+        
         localSum += value;
         numOps--;
     }
@@ -112,6 +125,7 @@ int main(int argc, char** argv) {
     }
 
     printf("Producers have terminated. Exiting...\n");
+    fflush(stdout);
     closeFIFO();
 
     exit(EXIT_SUCCESS);

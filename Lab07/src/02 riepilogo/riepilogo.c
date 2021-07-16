@@ -169,21 +169,25 @@ void main_process() {
 		}
 	}
     printf("[Main] All the children are now ready!!!\n");
+	fflush(stdout);
 
     // notify children to start their activities
     printf("[Main] Notifying children to start their activities...\n");
+    
     for (i = 0; i < n; i++) {
         ret = sem_post(children_wait_for_main);
 		if(ret) {
 		    handle_error("sem_post failed");
 		}
 	}
+    
     printf("[Main] Children have been notified to start their activities!!!\n");
-
     // main process
     printf("[Main] Sleeping for %d seconds...\n", t);
+    fflush(stdout);
     sleep(t);
     printf("[Main] Woke up after having slept for %d seconds!!!\n", t);
+	fflush(stdout);
 
     // notify children to end their activities
     printf("[Main] Notifying children to end their activities...\n");
@@ -263,7 +267,8 @@ void child_process(int child_id) {
     }
 
     printf("[Child#%d] Main process notified that I am ready!!!\n", child_id);
-
+	fflush(stdout);
+	
     // wait for main to notify me to begin my activities
     ret = sem_wait(children_wait_for_main);
     if(ret) {

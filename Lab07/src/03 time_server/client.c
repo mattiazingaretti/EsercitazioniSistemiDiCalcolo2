@@ -41,13 +41,21 @@ int main(int argc, char* argv[]) {
      * - send() with flags = 0 is equivalent to write() on a descriptor
      * - for now don't deal with messages partially sent
      */
+    int sent_bytes = 0;
+    while( command_len - sent_bytes > 0 ){
+		ret = send(socket_desc , command , command_len - sent_bytes, 0);
+		
+		if(ret == 1 ) {if(errno == EINTR) continue; handle_error("error while sending in socket in client \n");  }
+		
+		sent_bytes += ret;
+	}
 
     if (DEBUG) fprintf(stderr, "Message of %d bytes sent\n", ret);
 
     // read message from the server
     char recv_buf[256];
     size_t recv_buf_len = sizeof(recv_buf);
-    int recv_bytes;
+    int recv_bytes = 0;
 
     /** INSERT CODE TO RECEIVE DATA HERE
      *
@@ -59,6 +67,15 @@ int main(int argc, char* argv[]) {
      * - store the number of received bytes in recv_bytes
      */
     
+    while(recv_buf_len - recv_bytes > 0 ){
+		ret = recv(socket_desc , recv_buf , recv_buf_len - recv_bytes, 0);
+		
+		if(ret == 0) break;
+		if(ret == 1 ) {if(errno == EINTR) continue; handle_error("error while reading socket in client \n");  }
+		
+		recv_bytes += ret;
+	}
+	
     if (DEBUG) fprintf(stderr, "Message of %d bytes received\n", recv_bytes);
 
     recv_buf[recv_bytes] = '\0'; // add string terminator manually!
