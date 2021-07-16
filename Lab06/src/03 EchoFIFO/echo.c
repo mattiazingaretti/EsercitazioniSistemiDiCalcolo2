@@ -34,6 +34,12 @@ int main(int argc, char* argv[]) {
      *   requirement: the Echo program sends data through 'echo_fifo'
      *   and the Client program does it through 'client_fifo'
      **/
+     
+     client_fifo = open(CLNT_FIFO_NAME ,  O_RDONLY , 0666);
+     if(client_fifo <0){handle_error("errror in open client fifo in main \n ");}
+     echo_fifo = open(ECHO_FIFO_NAME ,  O_WRONLY , 0666);
+     if(echo_fifo <0){handle_error("errror in open echo fifo in main \n ");}
+     
 
     // send welcome message
     sprintf(buf, "Hi! I'm an Echo process based on FIFOs. I will send you back through a FIFO whatever"
@@ -47,7 +53,8 @@ int main(int argc, char* argv[]) {
      * - make sure that all the bytes have been written: use a while
      *   cycle in the implementation as we did for file descriptors!
      **/
-
+	writeMsg(echo_fifo , buf , bytes_left);
+	
     while (1) {
         /** INSERT CODE HERE TO READ THE MESSAGE THROUGH THE CLIENT FIFO
          *
@@ -61,8 +68,13 @@ int main(int argc, char* argv[]) {
          * - reading 0 bytes means that the other process has closed
          *   the FIFO unexpectedly: this is an error to deal with!
          **/
-
+        bytes_left = strlen(buf);
+		bytes_read = readOneByOne(client_fifo , buf , '\n');
+		
+		
+	
         if (DEBUG) {
+			//printf("bytes_read : %d  buff_len %d \n", bytes_read , strlen(buf));
             buf[bytes_read] = '\0';
             printf("Message received: %s", buf);
         }
@@ -71,8 +83,6 @@ int main(int argc, char* argv[]) {
         if (bytes_read == quit_command_len && !memcmp(buf, quit_command, quit_command_len)) break;
 
         // ... or if I have to send the message back through the Echo FIFO
-        bytes_left = bytes_read;
-        bytes_sent = 0;
         /** INSERT CODE HERE TO SEND THE MESSAGE THROUGH THE ECHO FIFO
          *
          * Suggestions:
@@ -80,6 +90,8 @@ int main(int argc, char* argv[]) {
          * - make sure that all the bytes have been written: use a while
          *   cycle in the implementation as we did for file descriptors!
          **/
+		writeMsg(echo_fifo , buf , strlen(buf));
+
     }
 
     // close the descriptors

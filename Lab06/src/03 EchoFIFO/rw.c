@@ -5,7 +5,7 @@
 
 int readOneByOne(int fd, char* buf, char separator) {
 
-    int ret;
+    int ret, bytes_read = 0;
 
     /** [TO DO] READ THE MESSAGE THROUGH THE FIFO DESCRIPTOR
      *
@@ -20,12 +20,26 @@ int readOneByOne(int fd, char* buf, char separator) {
      *   the FIFO unexpectedly: this is an error that should be
      *   dealt with!
      **/
-
+     char curr; 
+     //TODO CHECK il -1 
+     while(1){
+		
+		ret = read(fd , buf + bytes_read , 1);
+		
+		if(ret == 0) handle_error("Error in readOneByOne FIFO close unexpectedly \n");
+		if(ret == -1){ if (errno == EINTR) continue; handle_error("Error in readOneByOne ! \n");}
+		
+		curr = buf[bytes_read]; 
+		bytes_read += ret;
+		if(curr == separator) break;
+	 }
+	 //printf("Read %d bytes \n ", bytes_read); //DEBUG
+	return bytes_read;
 }
 
 void writeMsg(int fd, char* buf, int size) {
 
-    int ret;
+    int ret,bytes_left , bytes_sent;
     /** [TO DO] SEND THE MESSAGE THROUGH THE FIFO DESCRIPTOR
      *
      * Suggestions:
@@ -33,5 +47,19 @@ void writeMsg(int fd, char* buf, int size) {
      * - make sure that all the bytes have been written: use a while
      *   cycle in the implementation as we did for file descriptors!
      **/
-
+    bytes_left = strlen(buf);
+    bytes_sent = 0;
+	
+	while(bytes_left > 0 ){
+		
+		ret = write(fd, buf+bytes_sent , bytes_left);
+		
+		if(ret == -1){
+			if(errno == EINTR ) continue;
+			handle_error("Error in writing welcome message on ECHO fifo\n ");
+		}
+		bytes_sent += ret;
+		bytes_left -= ret;
+	}
+	//printf("Sent message of size : %d\n ", size);DEBUG
 }

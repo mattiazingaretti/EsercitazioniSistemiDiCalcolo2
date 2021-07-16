@@ -30,6 +30,23 @@ void initMemory() {
      * struct shared_memory, and map the shared memory in the shared_mem_ptr variable.
      * Initialize the shared memory to 0.
      **/
+     shm_unlink(SH_MEM_NAME);
+     
+     fd_shm = shm_open(SH_MEM_NAME, O_CREAT |O_EXCL |O_RDWR, 0666);
+     if(fd_shm <0){handle_error("Error in shm_open in initMemory in prod \n");}
+     
+     int ret = ftruncate(fd_shm, sizeof(struct shared_memory));
+     if(ret <0){handle_error("Error in ftruncate in initMemory in prod \n");}
+     
+     myshm_ptr = (struct shared_memory*) mmap(0 , sizeof(struct shared_memory) , PROT_READ | PROT_WRITE , MAP_SHARED , fd_shm ,0);
+	 if(myshm_ptr == MAP_FAILED){handle_error("Error in mmap in initMemory in prod \n");}
+	 
+	 for(int i = 0; i< BUFFER_SIZE; ++i)
+		myshm_ptr-> buf[i] = 0;
+		
+	myshm_ptr->read_index = 0 ;
+	myshm_ptr->write_index = 0 ;
+	
 }
 
 void closeMemory() {
@@ -37,6 +54,14 @@ void closeMemory() {
      *
      * unmap the shared memory, unlink the shared memory and close its descriptor
      **/
+	int ret = munmap(myshm_ptr , sizeof(struct shared_memory));
+    if(ret <0){handle_error("Error in munmap in closeMemory in prod \n");}
+
+	ret = close(fd_shm);
+	if(ret <0){handle_error("Error in close in closeMemory in prod \n");}
+
+	ret = shm_unlink(SH_MEM_NAME);
+	if(ret <0){handle_error("Error in shm_unlink in closeMemory in prod \n");}
 
 }
 
@@ -65,9 +90,16 @@ void produce(int id, int numOps) {
          * check that we can write
          * write value in the buffer inside the shared memory and update the producer position
          */
-
-        localSum += value;
-        numOps--;
+		
+		//Controllo buffer not full
+		if((myshm_ptr-> write_index+1)%BUFFER_SIZE != myshm_ptr->read_index){
+			myshm_ptr->buf[myshm_ptr->write_index] = value;
+			myshm_ptr-> write_index = (myshm_ptr-> write_index+1)%BUFFER_SIZE;
+		}
+		
+			localSum += value;
+			numOps--;
+        
     }
     printf("Producer %d ended. Local sum is %d\n", id, localSum);
 }

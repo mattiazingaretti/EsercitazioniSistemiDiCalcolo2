@@ -25,8 +25,24 @@ int write_to_pipe(int fd, const void *data, size_t data_len) {
      * - assicurarsi che tutti i 'data_len' byte siano stati scritti
      * - restituire il numero di bytes scritti
      **/
+     int ret, wi=0 , bytes_remaining = data_len , total= 0 ;
      
+     while(bytes_remaining > 0 ){
+		
+		ret = write(fd , (int*) data +wi, bytes_remaining);
+		
+		if(ret == -1 ){
+			if(errno == EINTR ) continue;
+			handle_error("error in write in write_to_pipe \n");
+		}
+		
+		wi += ret ;
+		bytes_remaining -= ret;
+		total += ret;
+		
+	 }
      
+     return total;
      
      
 
@@ -46,9 +62,25 @@ int read_from_pipe(int fd, void *data, size_t data_len) {
      * - assicurarsi che tutti i 'data_len' bytes siano stati letti
      * - restituire il numero di bytes letti
      **/
+     int ret,ri = 0, bytes_remaining = data_len , tot = 0;
      
+     while(bytes_remaining > 0 ){
+		
+		ret = read(fd ,(int*) data + ri , bytes_remaining );
+		
+		if (ret == 0) break;
+		
+		if(ret == -1){
+			if(errno == EINTR) continue; 
+			handle_error("Error in read in read_from_pipe \n ");
+		}
+		
+		bytes_remaining -= ret;
+		ri += ret;
+		tot += ret;
+	 }
      
-     
+    return tot;
      
 
 }
@@ -92,8 +124,8 @@ void reader(int reader_id, sem_t* read_mutex) {
      * - chiudere i descrittori della pipe non necessari
      * - gestire eventuali errori
      **/
-     
-     
+     ret = close(pipefd[1]);
+     if(ret) {handle_error("Error in close writer fd in reader \n");}
      
      
     
@@ -124,11 +156,8 @@ void reader(int reader_id, sem_t* read_mutex) {
      **/
      
      
-     
-     
-     
     ret = close(pipefd[0]);
-    if(ret) handle_error("error closing pipe");
+    if(ret) handle_error("error closing pipe in reader \n ");
 
 }
 
@@ -144,8 +173,8 @@ void writer(int writer_id, sem_t* write_mutex) {
      * - chiudere i descrittori della pipe non necessari
      * - gestire eventuali errori
      **/
-     
-     
+     ret = close(pipefd[0]);
+     if(ret) {handle_error("Error in close reader fd in writer \n");}
      
      
     for (i = 0 ; i < MSG_COUNT/WRITERS_COUNT; i++) {
@@ -172,6 +201,9 @@ void writer(int writer_id, sem_t* write_mutex) {
      * - gestire eventuali errori
      **/
      
+     ret = close(pipefd[1]);
+     if(ret) {handle_error("Error in close writer fd in writer \n");}
+     
      
      
      
@@ -197,6 +229,9 @@ int main(int argc, char* argv[]) {
      * - creare una pipe nella variabile globale 'pipefd'
      * - gestire eventuali errori
      **/
+     
+	 ret = pipe(pipefd);
+	 if(ret){handle_error("Error in pipe creation in main \n");}
      
      
      

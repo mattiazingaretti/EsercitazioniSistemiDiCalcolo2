@@ -32,6 +32,15 @@ void openMemory() {
      *
      * Request shared memory to the kernel and map the shared memory in the shared_mem_ptr variable.
      **/
+    
+	fd_shm = shm_open(SH_MEM_NAME , O_RDWR, 0666 );
+	if(fd_shm < 0 ) {handle_error("Error in shm_open in initMemory in consumer \n");}
+	
+	myshm_ptr = (struct shared_memory*) mmap(0 , sizeof(struct shared_memory) , PROT_READ | PROT_WRITE , MAP_SHARED , fd_shm ,0  );
+	if(myshm_ptr == MAP_FAILED ){handle_error("Error in mmap in initMemory in consumer \n");}
+	
+	
+     
 }
 
 void closeMemory() {
@@ -39,6 +48,15 @@ void closeMemory() {
      *
      * unmap the shared memory and close its descriptor
      **/
+    int ret;
+	ret = munmap(myshm_ptr , sizeof(struct shared_memory));
+	if(ret){handle_error("Error in munmap in closeMemory in consumer \n");}
+
+	ret = close(fd_shm);
+	if(ret){handle_error("Error in close in closeMemory in consumer \n");}
+
+     
+     
 }
 
 
@@ -96,15 +114,20 @@ void consume(int id, int numOps) {
          * Complete the following code:
          * read value from buffer inside the shared memory and update the consumer position
          */
+         
+         int value = myshm_ptr-> buf[myshm_ptr->read_index];
+         myshm_ptr->read_index = (myshm_ptr->read_index +1)% BUFFER_SIZE;  
 
+		
 
         ret = sem_post(sem_cs);
         if (ret) handle_error("sem_post cs");
 
         ret = sem_post(sem_empty);
         if (ret) handle_error("sem_post empty");
-
-        localSum += value;
+		
+		localSum += value;
+        
         numOps--;
     }
     printf("Consumer %d ended. Local sum is %d\n", id, localSum);

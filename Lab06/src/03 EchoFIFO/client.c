@@ -28,6 +28,11 @@ int main(int argc, char* argv[]) {
      *   requirement: the Echo program sends data through 'echo_fifo'
      *   and the Client program does it through 'client_fifo'
      **/
+     client_fifo = open(CLNT_FIFO_NAME ,  O_WRONLY , 0666);
+     if(client_fifo <0){handle_error("errror in open client fifo in main \n ");}
+     echo_fifo = open(ECHO_FIFO_NAME ,  O_RDONLY , 0666);
+     if(echo_fifo <0){handle_error("errror in open echo fifo in main \n ");}
+     
 
     // display welcome message received from the Echo process
     /** INSERT CODE HERE TO READ THE MESSAGE THROUGH THE ECHO FIFO
@@ -43,10 +48,12 @@ int main(int argc, char* argv[]) {
      * - reading 0 bytes means that the other process has closed
      *   the FIFO unexpectedly: this is an error to deal with!
      **/
-
+    bytes_read = readOneByOne(echo_fifo, buf , '\n' );
+     
     buf[bytes_read] = '\0';
-    printf("%s", buf);
-
+    ret = printf("%s", buf);
+	if (ret < 0 ) {handle_error("Error in printf in client \n ");}
+    
     // main loop
     while (1) {
         printf("Insert your message: ");
@@ -67,6 +74,7 @@ int main(int argc, char* argv[]) {
          *   cycle in the implementation as we did for file descriptors!
          * - store the total number of bytes sent in 'bytes_sent'
          **/
+         writeMsg(client_fifo, buf , bytes_left);
 
         /* After a quit command we won't receive data from the server
          * anymore, thus we must exit the main loop. */
@@ -85,6 +93,8 @@ int main(int argc, char* argv[]) {
          * - reading 0 bytes means that the other process has closed
          *   the FIFO unexpectedly: this is an error to deal with!
          **/
+        bytes_read = readOneByOne(echo_fifo , buf , '\n');
+        
         buf[bytes_read] = '\0';
         printf("Server response: %s\n", buf);
     }
